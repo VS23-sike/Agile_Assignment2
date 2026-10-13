@@ -1,0 +1,66 @@
+
+services:
+  api:
+    build: .
+    container_name: student-performance-api
+    ports:
+      - "8000:8000"
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    depends_on:
+      - mlflow
+    restart: unless-stopped
+
+  mlflow:
+    build: .
+    container_name: student-performance-mlflow
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - sqlite:////mlflow-data/mlflow.db
+      - --default-artifact-root
+      - /mlflow-data/artifacts
+      - --allowed-hosts
+      - "*"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow-data
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: student-performance-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: student-performance-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana-datasource.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  mlflow_data:
+  prometheus_data:
+  grafana_data:
